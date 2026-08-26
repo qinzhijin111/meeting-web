@@ -368,40 +368,6 @@ A successful setup should result in the LiveKit meeting interface loading withou
 
 You should be able to grant camera and microphone access and join the development room.
 
----
-
-### 12. Test With Two Participants
-
-To verify that the LiveKit room works with multiple participants:
-
-1. Start the development server:
-
-   ```bash
-   npm run dev
-   ```
-
-2. Open:
-
-   ```text
-   http://localhost:3000/meeting
-   ```
-
-3. Open the same URL in a second browser window.
-
-   You can use:
-
-   * Chrome + Edge
-   * Two different browser profiles
-   * A regular window + an incognito/private window
-
-4. Allow microphone and camera permissions where appropriate.
-
-5. Confirm that both participants join the same LiveKit room.
-
-6. Confirm that each participant can see the other participant in the meeting interface.
-
-If both browser windows are running on the same computer, audio feedback or echo may occur. Muting the microphone in one window is recommended during testing.
-
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
