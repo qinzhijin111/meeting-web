@@ -4,8 +4,9 @@ import { AccessToken } from "livekit-server-sdk";
 export async function GET() {
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
+  const serverUrl = process.env.LIVEKIT_URL;
 
-  if (!apiKey || !apiSecret) {
+  if (!apiKey || !apiSecret || !serverUrl) {
     return Response.json(
       { error: "LiveKit credentials are not configured" },
       { status: 500 }
@@ -28,6 +29,7 @@ export async function GET() {
 
   return Response.json({
     token,
+    serverUrl,
     roomName,
     participantIdentity,
   });
