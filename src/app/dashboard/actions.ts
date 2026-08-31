@@ -16,10 +16,14 @@ export async function createRoom(formData: FormData) {
     redirect("/login");
   }
 
-  const title = formData.get("title") as string;
+  const title = formData.get("title");
 
-  if (!title || title.trim().length === 0) {
+  if (typeof title !== "string" || title.trim().length === 0) {
     redirect("/dashboard?error=room_title_required");
+  }
+
+  if (title.trim().length > 80) {
+    redirect("/dashboard?error=room_title_too_long");
   }
 
   const { error } = await supabase.from("rooms").insert({
@@ -29,7 +33,7 @@ export async function createRoom(formData: FormData) {
   });
 
   if (error) {
-    console.error(error);
+    console.error("Failed to create room:", error);
     redirect("/dashboard?error=room_creation_failed");
   }
 
