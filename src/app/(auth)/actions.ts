@@ -10,13 +10,19 @@ export async function signup(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
   });
 
   if (error) {
     redirect("/signup?error=signup_failed");
+  }
+
+  // If email confirmation is enabled,
+  // Supabase creates the user but does not create a session yet.
+  if (!data.session) {
+    redirect("/login?message=check_email");
   }
 
   redirect("/dashboard");
@@ -47,4 +53,3 @@ export async function logout() {
 
   redirect("/login");
 }
-

@@ -4,6 +4,7 @@ import { login } from "../actions";
 type LoginPageProps = {
   searchParams: Promise<{
     error?: string;
+    message?: string;
   }>;
 };
 
@@ -22,6 +23,13 @@ export default async function LoginPage({
         <p className="mb-6 text-center text-sm text-gray-500">
           Welcome back to AgentMeet
         </p>
+
+        {params.message === "check_email" && (
+          <div className="mb-4 rounded-md bg-blue-50 p-3 text-sm text-blue-700">
+            Account created successfully. Please check your email and verify
+            your account before logging in.
+          </div>
+        )}
 
         {params.error === "invalid_credentials" && (
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
