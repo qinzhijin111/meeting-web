@@ -1,7 +1,9 @@
 
 "use server";
 
+import bcrypt from "bcryptjs";
 import { createClient } from "@/lib/supabase/server";
+import { createRoomServiceClient } from "@/lib/livekit/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -17,7 +19,9 @@ export async function createRoom(formData: FormData) {
   }
 
   const title = formData.get("title");
+  const password = formData.get("password");
 
+  // Validate room title
   if (typeof title !== "string" || title.trim().length === 0) {
     redirect("/dashboard?error=room_title_required");
   }
@@ -26,14 +30,60 @@ export async function createRoom(formData: FormData) {
     redirect("/dashboard?error=room_title_too_long");
   }
 
-  const { error } = await supabase.from("rooms").insert({
-    title: title.trim(),
-    host_user_id: user.id,
-    status: "draft",
-  });
+  // Validate room password
+  if (
+    typeof password !== "string" ||
+    password.length < 6
+  ) {
+    redirect("/dashboard?error=room_password_invalid");
+  }
 
-  if (error) {
-    console.error("Failed to create room:", error);
+  // Hash password on the server.
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  // Internal LiveKit room name.
+  const livekitRoomName = `room_${crypto.randomUUID()}`;
+
+  const roomService = createRoomServiceClient();
+
+  try {
+    // Create the actual LiveKit room.
+    await roomService.createRoom({
+      name: livekitRoomName,
+      maxParticipants: 8,
+      emptyTimeout: 10 * 60,
+    });
+  } catch (error) {
+    console.error("Failed to create LiveKit room:", error);
+    redirect("/dashboard?error=livekit_room_creation_failed");
+  }
+
+  const { error: databaseError } = await supabase
+    .from("rooms")
+    .insert({
+      title: title.trim(),
+      host_user_id: user.id,
+      password_hash: passwordHash,
+      livekit_room_name: livekitRoomName,
+      status: "draft",
+    });
+
+  if (databaseError) {
+    console.error(
+      "Failed to save room to database:",
+      databaseError
+    );
+
+    // Best-effort cleanup so we do not leave an orphan LiveKit room.
+    try {
+      await roomService.deleteRoom(livekitRoomName);
+    } catch (cleanupError) {
+      console.error(
+        "Failed to clean up LiveKit room:",
+        cleanupError
+      );
+    }
+
     redirect("/dashboard?error=room_creation_failed");
   }
 

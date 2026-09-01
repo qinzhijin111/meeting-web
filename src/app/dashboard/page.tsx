@@ -102,6 +102,26 @@ export default async function DashboardPage({
               />
             </div>
 
+            <div>
+              <label
+               htmlFor="password"
+               className="mb-1 block text-sm font-medium text-gray-700"
+              >
+               Room password
+              </label>
+
+              <input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="Enter room password"
+                required
+                minLength={6}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+
             <button
               type="submit"
               className="w-full rounded-md bg-green-600 py-2 font-medium text-white hover:bg-green-700"
