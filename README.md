@@ -381,3 +381,46 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+## Architecture Vocabulary
+
+This section summarizes the key architecture and development vocabulary learned during Week 1.
+
+### Git Basics
+
+* **Repository (Repo):** A place where project files and their Git history are stored. `meeting-web` and `meeting-agent-worker` are the two repositories used for this project.
+* **Clone:** To create a local copy of a remote Git repository on a computer.
+* **Branch:** A separate line of development that allows changes to be made without directly modifying the main branch.
+* **Commit:** A saved snapshot of changes in a Git repository, usually with a message describing what was changed.
+* **Push:** To upload local commits to a remote repository such as GitHub.
+* **Pull Request (PR):** A request to review changes from one branch before merging them into another branch, usually `main`.
+* **Merge Conflict:** A conflict that occurs when Git cannot automatically combine changes from different branches and requires the developer to resolve them manually.
+
+### Next.js Basics
+
+* **App Router:** The Next.js routing system based on the `app` directory. Files and folders inside the directory define pages, layouts, and server routes.
+* **Page:** A React component that represents a route that users can visit in the browser. For example, the meeting page is available through `/meeting`.
+* **Layout:** A shared UI structure that can wrap multiple pages, such as a common page structure or navigation area.
+* **Client Component:** A React component that runs in the browser and can handle user interaction, browser APIs, and React hooks.
+* **Server Component:** A component that is rendered on the server. It can perform server-side work without sending that logic to the browser.
+* **Environment Variable:** A configuration value stored outside the application source code. Sensitive values such as the LiveKit API secret should be stored in environment variables rather than written directly in the code.
+
+### LiveKit Basics
+
+* **Room:** A LiveKit meeting session where participants can communicate with each other.
+* **Participant:** A user or agent connected to a LiveKit room. Each participant has an identity that distinguishes it from others.
+* **Track:** A real-time media stream belonging to a participant, such as microphone audio or camera video.
+* **Publish:** To send a local media track, such as microphone audio or camera video, into a LiveKit room so other participants can receive it.
+* **Subscribe:** To receive another participant's published media track.
+* **Token:** A temporary access credential that allows a participant to connect to a LiveKit room with specific permissions. The token should be generated securely on the server.
+* **Server URL:** The address used by the application to connect to the LiveKit server.
+
+### Browser and WebRTC Basics
+
+* **Microphone Permission:** Permission granted by the user that allows the browser to access the device's microphone.
+* **Camera Permission:** Permission granted by the user that allows the browser to access the device's camera.
+* **Browser Permission:** A browser security mechanism that controls whether a website can access protected device features such as the camera and microphone.
+* **WebRTC:** A web technology that enables real-time audio, video, and data communication between applications. LiveKit uses WebRTC as part of its real-time communication infrastructure.
+* **User Permission:** Explicit approval from the user before a web application can access privacy-sensitive device capabilities.
+
