@@ -1,5 +1,7 @@
 
+import Link from "next/link";
 import { redirect } from "next/navigation";
+
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/(auth)/actions";
 import { createRoom } from "./actions";
@@ -27,13 +29,13 @@ export default async function DashboardPage({
 
   const { data: rooms } = await supabase
     .from("rooms")
-    .select("id, title, status, created_at")
+    .select("id, public_id, title, status, created_at")
     .eq("host_user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(5);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-100">
+    <main className="flex min-h-screen items-center justify-center bg-gray-100 p-6">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
         <h1 className="mb-2 text-center text-2xl font-bold text-gray-800">
           Dashboard
@@ -43,16 +45,16 @@ export default async function DashboardPage({
           Welcome to AgentMeet
         </p>
 
+        {/* Current user */}
         <div className="rounded-md bg-gray-50 p-4">
-          <p className="text-sm text-gray-500">
-            Signed in as
-          </p>
+          <p className="text-sm text-gray-500">Signed in as</p>
 
           <p className="mt-1 font-medium text-gray-800">
             {user.email}
           </p>
         </div>
 
+        {/* Create Room */}
         <div className="mt-8 border-t border-gray-200 pt-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-800">
             Create Room
@@ -67,6 +69,18 @@ export default async function DashboardPage({
           {params.error === "room_title_too_long" && (
             <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
               Room title must be 80 characters or fewer.
+            </div>
+          )}
+
+          {params.error === "room_password_invalid" && (
+            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
+              Room password must be at least 6 characters.
+            </div>
+          )}
+
+          {params.error === "livekit_room_creation_failed" && (
+            <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
+              Unable to create the LiveKit room. Please try again.
             </div>
           )}
 
@@ -104,10 +118,10 @@ export default async function DashboardPage({
 
             <div>
               <label
-               htmlFor="password"
-               className="mb-1 block text-sm font-medium text-gray-700"
+                htmlFor="password"
+                className="mb-1 block text-sm font-medium text-gray-700"
               >
-               Room password
+                Room password
               </label>
 
               <input
@@ -121,7 +135,6 @@ export default async function DashboardPage({
               />
             </div>
 
-
             <button
               type="submit"
               className="w-full rounded-md bg-green-600 py-2 font-medium text-white hover:bg-green-700"
@@ -131,6 +144,7 @@ export default async function DashboardPage({
           </form>
         </div>
 
+        {/* Recent Rooms */}
         <div className="mt-8 border-t border-gray-200 pt-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-800">
             Recent Rooms
@@ -150,6 +164,13 @@ export default async function DashboardPage({
                   <p className="mt-1 text-sm text-gray-500">
                     Status: {room.status}
                   </p>
+
+                  <Link
+                    href={`/room/${room.public_id}`}
+                    className="mt-2 inline-block text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    Open shareable room link
+                  </Link>
                 </div>
               ))}
             </div>
@@ -160,6 +181,7 @@ export default async function DashboardPage({
           )}
         </div>
 
+        {/* Logout */}
         <form action={logout} className="mt-6">
           <button
             type="submit"

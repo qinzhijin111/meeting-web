@@ -14,6 +14,7 @@ export async function createRoom(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // User must be authenticated before creating a room.
   if (!user) {
     redirect("/login");
   }
@@ -21,7 +22,7 @@ export async function createRoom(formData: FormData) {
   const title = formData.get("title");
   const password = formData.get("password");
 
-  // Validate room title
+  // Validate room title.
   if (typeof title !== "string" || title.trim().length === 0) {
     redirect("/dashboard?error=room_title_required");
   }
@@ -30,7 +31,7 @@ export async function createRoom(formData: FormData) {
     redirect("/dashboard?error=room_title_too_long");
   }
 
-  // Validate room password
+  // Validate room password.
   if (
     typeof password !== "string" ||
     password.length < 6
@@ -38,8 +39,11 @@ export async function createRoom(formData: FormData) {
     redirect("/dashboard?error=room_password_invalid");
   }
 
-  // Hash password on the server.
+  // Hash the password before storing it in the database.
   const passwordHash = await bcrypt.hash(password, 10);
+
+  // Public ID used in the shareable room URL.
+  const publicRoomId = crypto.randomUUID();
 
   // Internal LiveKit room name.
   const livekitRoomName = `room_${crypto.randomUUID()}`;
@@ -55,9 +59,13 @@ export async function createRoom(formData: FormData) {
     });
   } catch (error) {
     console.error("Failed to create LiveKit room:", error);
-    redirect("/dashboard?error=livekit_room_creation_failed");
+
+    redirect(
+      "/dashboard?error=livekit_room_creation_failed"
+    );
   }
 
+  // Save the room information in Supabase.
   const { error: databaseError } = await supabase
     .from("rooms")
     .insert({
@@ -65,6 +73,7 @@ export async function createRoom(formData: FormData) {
       host_user_id: user.id,
       password_hash: passwordHash,
       livekit_room_name: livekitRoomName,
+      public_id: publicRoomId,
       status: "draft",
     });
 
@@ -74,7 +83,9 @@ export async function createRoom(formData: FormData) {
       databaseError
     );
 
-    // Best-effort cleanup so we do not leave an orphan LiveKit room.
+    // Best-effort cleanup:
+    // if the database insert fails, remove the LiveKit room
+    // so we do not leave an orphan room behind.
     try {
       await roomService.deleteRoom(livekitRoomName);
     } catch (cleanupError) {
@@ -88,5 +99,6 @@ export async function createRoom(formData: FormData) {
   }
 
   revalidatePath("/dashboard");
+
   redirect("/dashboard?success=room_created");
 }
