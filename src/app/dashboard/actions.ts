@@ -74,7 +74,7 @@ export async function createRoom(formData: FormData) {
       password_hash: passwordHash,
       livekit_room_name: livekitRoomName,
       public_id: publicRoomId,
-      status: "draft",
+      status: "active",
     });
 
   if (databaseError) {

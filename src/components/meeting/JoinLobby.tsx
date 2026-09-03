@@ -1,35 +1,66 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 type JoinLobbyProps = {
   roomId: string;
-  defaultDisplayName: string;
+};
+
+type JoinResponse = {
+  token?: string;
+  serverUrl?: string;
+  participantIdentity?: string;
+
+  error?: string;
+  code?: string;
 };
 
 export default function JoinLobby({
   roomId,
-  defaultDisplayName,
 }: JoinLobbyProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const videoRef =
+    useRef<HTMLVideoElement>(null);
 
-  const [displayName, setDisplayName] = useState(defaultDisplayName);
-  const [password, setPassword] = useState("");
+  const streamRef =
+    useRef<MediaStream | null>(null);
 
-  const [micEnabled, setMicEnabled] = useState(true);
-  const [cameraEnabled, setCameraEnabled] = useState(true);
+  const [displayName, setDisplayName] =
+    useState("");
 
-  const [deviceError, setDeviceError] = useState("");
+  const [password, setPassword] =
+    useState("");
+
+  const [micEnabled, setMicEnabled] =
+    useState(true);
+
+  const [cameraEnabled, setCameraEnabled] =
+    useState(true);
+
+  const [deviceError, setDeviceError] =
+    useState("");
+
+  const [joinError, setJoinError] =
+    useState("");
+
+  const [joinSuccess, setJoinSuccess] =
+    useState("");
+
+  const [isJoining, setIsJoining] =
+    useState(false);
 
   useEffect(() => {
     async function startPreview() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: true,
-        });
+        const stream =
+          await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: true,
+          });
 
         streamRef.current = stream;
 
@@ -46,16 +77,22 @@ export default function JoinLobby({
     startPreview();
 
     return () => {
-      streamRef.current?.getTracks().forEach((track) => {
-        track.stop();
-      });
+      streamRef.current
+        ?.getTracks()
+        .forEach((track) => {
+          track.stop();
+        });
     };
   }, []);
 
   function toggleMicrophone() {
-    const audioTracks = streamRef.current?.getAudioTracks();
+    const audioTracks =
+      streamRef.current?.getAudioTracks();
 
-    if (!audioTracks || audioTracks.length === 0) {
+    if (
+      !audioTracks ||
+      audioTracks.length === 0
+    ) {
       return;
     }
 
@@ -69,9 +106,13 @@ export default function JoinLobby({
   }
 
   function toggleCamera() {
-    const videoTracks = streamRef.current?.getVideoTracks();
+    const videoTracks =
+      streamRef.current?.getVideoTracks();
 
-    if (!videoTracks || videoTracks.length === 0) {
+    if (
+      !videoTracks ||
+      videoTracks.length === 0
+    ) {
       return;
     }
 
@@ -82,6 +123,94 @@ export default function JoinLobby({
     });
 
     setCameraEnabled(nextState);
+  }
+
+  async function handleJoin(
+    event: React.SubmitEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    setJoinError("");
+    setJoinSuccess("");
+
+    if (!displayName.trim()) {
+      setJoinError(
+        "Please enter a display name."
+      );
+      return;
+    }
+
+    if (!password) {
+      setJoinError(
+        "Please enter the room password."
+      );
+      return;
+    }
+
+    setIsJoining(true);
+
+    try {
+      const response = await fetch(
+        `/api/rooms/${encodeURIComponent(
+          roomId
+        )}/join`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            displayName:
+              displayName.trim(),
+            password,
+          }),
+        }
+      );
+
+      const data: JoinResponse =
+        await response.json();
+
+      if (!response.ok) {
+        setJoinError(
+          data.error ||
+            "Unable to join this room."
+        );
+
+        return;
+      }
+
+      if (
+        !data.token ||
+        !data.serverUrl
+      ) {
+        setJoinError(
+          "The server did not return valid meeting credentials."
+        );
+
+        return;
+      }
+
+      // Task 6 is working:
+      // the browser received a short-lived,
+      // room-scoped LiveKit token from the server.
+      //
+      // Do not console.log the token.
+
+      setJoinSuccess(
+        "Room access approved. LiveKit credentials were issued successfully."
+      );
+
+      setPassword("");
+    } catch {
+      setJoinError(
+        "Unable to contact the server. Please try again."
+      );
+    } finally {
+      setIsJoining(false);
+    }
   }
 
   return (
@@ -96,21 +225,20 @@ export default function JoinLobby({
         </p>
 
         <div className="relative mb-6 overflow-hidden rounded-lg bg-gray-900">
-         <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="aspect-video w-full object-cover"
-         />
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="aspect-video w-full object-cover"
+          />
 
-         {!cameraEnabled && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-gray-300">
-           Camera is off
-          </div>
-         )}
-     </div>
-
+          {!cameraEnabled && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-gray-300">
+              Camera is off
+            </div>
+          )}
+        </div>
 
         {deviceError && (
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
@@ -124,7 +252,9 @@ export default function JoinLobby({
             onClick={toggleMicrophone}
             className="flex-1 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            {micEnabled ? "Mute microphone" : "Unmute microphone"}
+            {micEnabled
+              ? "Mute microphone"
+              : "Unmute microphone"}
           </button>
 
           <button
@@ -132,11 +262,16 @@ export default function JoinLobby({
             onClick={toggleCamera}
             className="flex-1 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            {cameraEnabled ? "Turn camera off" : "Turn camera on"}
+            {cameraEnabled
+              ? "Turn camera off"
+              : "Turn camera on"}
           </button>
         </div>
 
-        <div className="space-y-4">
+        <form
+          onSubmit={handleJoin}
+          className="space-y-4"
+        >
           <div>
             <label
               htmlFor="displayName"
@@ -149,9 +284,13 @@ export default function JoinLobby({
               id="displayName"
               type="text"
               value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-              placeholder="Enter your display name"
+              onChange={(event) =>
+                setDisplayName(
+                  event.target.value
+                )
+              }
               required
+              maxLength={80}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
             />
           </div>
@@ -168,25 +307,42 @@ export default function JoinLobby({
               id="password"
               type="password"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter room password"
+              onChange={(event) =>
+                setPassword(
+                  event.target.value
+                )
+              }
               required
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-blue-500 focus:outline-none"
             />
           </div>
 
-          <button
-            type="button"
-            disabled
-            className="w-full cursor-not-allowed rounded-md bg-blue-400 py-2 font-medium text-white"
-          >
-            Join Room
-          </button>
+          {joinError && (
+            <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+              {joinError}
+            </div>
+          )}
 
-          <p className="text-center text-xs text-gray-400">
-            Room ID: {roomId}
-          </p>
-        </div>
+          {joinSuccess && (
+            <div className="rounded-md bg-green-50 p-3 text-sm text-green-700">
+              {joinSuccess}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isJoining}
+            className="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isJoining
+              ? "Joining..."
+              : "Join Room"}
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-xs text-gray-400">
+          Room ID: {roomId}
+        </p>
       </div>
     </main>
   );

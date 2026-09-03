@@ -25,9 +25,6 @@ export default async function RoomPage({
   const { roomId } = await params;
 
   return (
-    <JoinLobby
-      roomId={roomId}
-      defaultDisplayName={user.email ?? ""}
-    />
+    <JoinLobby roomId={roomId} />
   );
 }
