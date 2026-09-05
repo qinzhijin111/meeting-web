@@ -210,6 +210,9 @@ export default function JoinLobby({ roomId }: JoinLobbyProps) {
         serverUrl={meetingCredentials.serverUrl}
         audioEnabled={micEnabled}
         videoEnabled={cameraEnabled}
+        onLeave={() => {
+        window.location.reload();
+      }}
       />
     );
   }
