@@ -367,6 +367,133 @@ A successful setup should result in the LiveKit meeting interface loading withou
 
 You should be able to grant camera and microphone access and join the development room.
 
+## Data Model
+
+Week 2 introduces the first persistent application data using Supabase Postgres.
+
+### profiles
+
+The `profiles` table stores application-level information associated with a Supabase Auth user.
+
+Important fields:
+
+- `id`: UUID that references the authenticated Supabase user.
+- `display_name`: Optional display name for the user.
+- `created_at`: Timestamp for when the profile was created.
+
+The profile ID is linked to `auth.users.id`, allowing application data to be associated with the authenticated user.
+
+### rooms
+
+The `rooms` table stores meeting room records created by users.
+
+Important fields:
+
+- `id`: Unique room identifier.
+- `title`: User-provided room title.
+- `host_user_id`: References the authenticated user who created the room.
+- `status`: Current room state. During Week 2, newly created rooms use the `draft` status.
+- `created_at`: Timestamp for when the room record was created.
+
+For Week 2, creating a room only creates a draft database record. LiveKit room creation and password protection will be implemented in a later stage.
+
+### Row Level Security
+
+Row Level Security (RLS) is enabled for the application tables.
+
+Users can only read rooms where their authenticated user ID matches the room's `host_user_id`. Users can also only create rooms using their own authenticated user ID.
+
+This prevents one authenticated user from reading another user's private draft rooms through normal application queries.
+
+# Week 2 Manual Test Checklist
+
+## Authentication
+
+- [x] Sign up with a new email and password.
+  - New user appears in Supabase Authentication.
+  - User is asked to verify their email when email confirmation is enabled.
+
+- [x] Login with valid credentials.
+  - User is redirected to `/dashboard`.
+  - Dashboard displays the authenticated user's email.
+
+- [x] Login with an incorrect password.
+  - User is not authenticated.
+  - A friendly "Invalid email or password" message is displayed.
+
+- [x] Refresh the browser after login.
+  - Authentication session persists.
+  - User remains on the dashboard.
+
+- [x] Access `/dashboard` while logged out.
+  - User is redirected to `/login`.
+
+## Room Creation
+
+- [x] Create a room with a valid title.
+  - A new row appears in the `rooms` table.
+  - `host_user_id` matches the authenticated user.
+  - Room status is `draft`.
+
+- [x] Submit an invalid room title.
+  - Invalid input is rejected.
+  - A friendly validation message is displayed.
+
+- [x] Create a room successfully.
+  - A success message is displayed.
+  - The room appears in Recent Rooms.
+
+## Row Level Security
+
+- [x] User A creates a private draft room.
+
+- [x] User B signs in using a separate browser session.
+
+- [x] User B performs a normal authenticated query against the `rooms` table.
+  - User B cannot read User A's private draft room.
+  - User B can only see rooms permitted by RLS.
+
+## Week 4: Multi-Participant Meeting Experience
+
+The application now includes a realtime multi-participant meeting interface built with LiveKit React Components.
+
+### Features
+
+- Up to five active human participants
+- Participant names and Human/Agent badges
+- Microphone mute/unmute
+- Camera enable/disable
+- Voice-only participation
+- Microphone and camera device selection
+- Leave and rejoin
+- Connecting, reconnecting, and disconnected states
+- Visible media permission errors
+- Screen sharing
+- Responsive narrow-screen layout
+
+### Room Capacity
+
+The application allows up to five active human participants.
+
+Human participants are counted separately from future AI agent participants. A sixth distinct human user is rejected by the server before a LiveKit access token is issued.
+
+### Week 4 Testing
+
+Manual testing included:
+
+- five simultaneous human participants;
+- sixth-participant rejection;
+- microphone and camera controls;
+- leave and rejoin;
+- device selection;
+- temporary network interruption;
+- camera/microphone permission failures;
+- screen sharing;
+- narrow mobile-size browser layout.
+
+See [`docs/week4/TESTING.md`](docs/week4/TESTING.md) for test evidence.
+
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
