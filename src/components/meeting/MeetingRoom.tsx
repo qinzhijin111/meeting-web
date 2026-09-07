@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   DisconnectButton,
   GridLayout,
@@ -13,6 +13,7 @@ import {
   useConnectionState,
   useLocalParticipant,
   useParticipants,
+  useRoomContext,
   useTrackRefContext,
   useTracks,
 } from "@livekit/components-react";
@@ -228,25 +229,163 @@ function ScreenShareButton({
 }
 
 type MeetingControlsProps = {
+  initialAudioEnabled: boolean;
+  initialVideoEnabled: boolean;
   onLeave: () => void;
   onDeviceError: (message: string) => void;
 };
 
 function MeetingControls({
+  initialAudioEnabled,
+  initialVideoEnabled,
   onLeave,
   onDeviceError,
 }: MeetingControlsProps) {
+  const room = useRoomContext();
+
+  const {
+    localParticipant,
+  } = useLocalParticipant();
+
+  /*
+   * These refs remember what the user actually wants.
+   *
+   * Example:
+   * Camera is ON
+   * -> switch to broken camera
+   * -> LiveKit camera track fails
+   *
+   * We still remember that the user wanted the camera ON,
+   * so selecting a working camera can restore it.
+   */
+  const microphoneWantedRef =
+    useRef(initialAudioEnabled);
+
+  const cameraWantedRef =
+    useRef(initialVideoEnabled);
+
+  async function recoverMicrophoneDevice(
+    deviceId: string,
+  ) {
+    try {
+      onDeviceError("");
+
+      const shouldEnableMicrophone =
+        microphoneWantedRef.current;
+
+      /*
+       * Stop the failed/current microphone track first.
+       * This gives LiveKit a clean state before switching.
+       */
+      await localParticipant.setMicrophoneEnabled(false);
+
+      const switched =
+        await room.switchActiveDevice(
+          "audioinput",
+          deviceId,
+          true,
+        );
+
+      if (!switched) {
+        throw new Error(
+          "Unable to switch microphone.",
+        );
+      }
+
+      /*
+       * Only turn the microphone back on if
+       * the user wanted it enabled.
+       */
+      if (shouldEnableMicrophone) {
+        await localParticipant.setMicrophoneEnabled(
+          true,
+          {
+            deviceId,
+          },
+        );
+      }
+    } catch {
+      onDeviceError(
+        "Unable to use the selected microphone. Choose another microphone or check whether the device is available.",
+      );
+    }
+  }
+
+  async function recoverCameraDevice(
+    deviceId: string,
+  ) {
+    try {
+      onDeviceError("");
+
+      const shouldEnableCamera =
+        cameraWantedRef.current;
+
+      /*
+       * Stop the current/failed camera track.
+       *
+       * This is the important recovery step for cases such
+       * as selecting an unavailable NVIDIA Broadcast camera.
+       */
+      await localParticipant.setCameraEnabled(false);
+
+      /*
+       * Tell the LiveKit room which physical/virtual
+       * camera should now be active.
+       */
+      const switched =
+        await room.switchActiveDevice(
+          "videoinput",
+          deviceId,
+          true,
+        );
+
+      if (!switched) {
+        throw new Error(
+          "Unable to switch camera.",
+        );
+      }
+
+      /*
+       * Recreate the camera track only if the user
+       * wanted the camera enabled.
+       *
+       * Voice-only users therefore remain camera-off.
+       */
+      if (shouldEnableCamera) {
+        await localParticipant.setCameraEnabled(
+          true,
+          {
+            deviceId,
+          },
+        );
+      }
+    } catch {
+      onDeviceError(
+        "Unable to use the selected camera. Choose another camera or check whether the device is available.",
+      );
+    }
+  }
+
   return (
     <footer className="border-t border-gray-800 bg-gray-950 px-4 py-4">
       <div className="flex flex-wrap items-center justify-center gap-4">
+
         {/* Microphone */}
         <div className="flex items-center gap-1">
           <TrackToggle
             source={Track.Source.Microphone}
-            onDeviceError={(error) => {
+            onChange={(
+              enabled,
+              isUserInitiated,
+            ) => {
+              if (isUserInitiated) {
+                microphoneWantedRef.current =
+                  enabled;
+              }
+            }}
+            onDeviceError={() => {
               onDeviceError(
-                error.message ||
-                  "Unable to access the microphone.",
+                "Microphone access failed. Please allow microphone access in your browser settings.",
               );
             }}
             className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
@@ -256,6 +395,14 @@ function MeetingControls({
 
           <MediaDeviceMenu
             kind="audioinput"
+            onActiveDeviceChange={(
+              _kind,
+              deviceId,
+            ) => {
+              void recoverMicrophoneDevice(
+                deviceId,
+              );
+            }}
             className="rounded-lg bg-gray-800 px-3 py-2 text-white hover:bg-gray-700"
           />
         </div>
@@ -264,10 +411,18 @@ function MeetingControls({
         <div className="flex items-center gap-1">
           <TrackToggle
             source={Track.Source.Camera}
-            onDeviceError={(error) => {
+            onChange={(
+              enabled,
+              isUserInitiated,
+            ) => {
+              if (isUserInitiated) {
+                cameraWantedRef.current =
+                  enabled;
+              }
+            }}
+            onDeviceError={() => {
               onDeviceError(
-                error.message ||
-                  "Unable to access the camera.",
+                "Camera access failed. Please allow camera access in your browser settings.",
               );
             }}
             className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700"
@@ -277,6 +432,14 @@ function MeetingControls({
 
           <MediaDeviceMenu
             kind="videoinput"
+            onActiveDeviceChange={(
+              _kind,
+              deviceId,
+            ) => {
+              void recoverCameraDevice(
+                deviceId,
+              );
+            }}
             className="rounded-lg bg-gray-800 px-3 py-2 text-white hover:bg-gray-700"
           />
         </div>
@@ -300,12 +463,16 @@ function MeetingControls({
 }
 
 type MeetingRoomContentProps = {
+  initialAudioEnabled: boolean;
+  initialVideoEnabled: boolean;
   meetingError: string;
   setMeetingError: (message: string) => void;
   onLeave: () => void;
 };
 
 function MeetingRoomContent({
+  initialAudioEnabled,
+  initialVideoEnabled,
   meetingError,
   setMeetingError,
   onLeave,
@@ -354,11 +521,15 @@ function MeetingRoomContent({
 
       {meetingError && (
         <div className="mx-4 mt-4 flex items-center justify-between gap-4 rounded-lg border border-red-800 bg-red-950 px-4 py-3 text-sm text-red-200">
-          <span>{meetingError}</span>
+          <span>
+            {meetingError}
+          </span>
 
           <button
             type="button"
-            onClick={() => setMeetingError("")}
+            onClick={() =>
+              setMeetingError("")
+            }
             className="font-medium text-red-100 underline"
           >
             Dismiss
@@ -374,6 +545,12 @@ function MeetingRoomContent({
       </GridLayout>
 
       <MeetingControls
+        initialAudioEnabled={
+          initialAudioEnabled
+        }
+        initialVideoEnabled={
+          initialVideoEnabled
+        }
         onLeave={onLeave}
         onDeviceError={setMeetingError}
       />
@@ -416,27 +593,32 @@ export default function MeetingRoom({
             "Unable to connect to the meeting.",
         );
       }}
-      onMediaDeviceFailure={(_failure, kind) => {
+      onMediaDeviceFailure={(
+        _failure,
+        kind,
+      ) => {
         if (kind === "audioinput") {
           setMeetingError(
-            "Microphone access failed. Check your browser microphone permission.",
+            "Microphone access failed. Please allow microphone access in your browser settings.",
           );
           return;
         }
 
         if (kind === "videoinput") {
           setMeetingError(
-            "Camera access failed. Check your browser camera permission.",
+            "Camera access failed. Please allow camera access in your browser settings.",
           );
           return;
         }
 
         setMeetingError(
-          "A media device could not be accessed. Check your browser permissions.",
+          "A media device could not be accessed. Please check your browser permissions.",
         );
       }}
     >
       <MeetingRoomContent
+        initialAudioEnabled={audioEnabled}
+        initialVideoEnabled={videoEnabled}
         meetingError={meetingError}
         setMeetingError={setMeetingError}
         onLeave={onLeave}
