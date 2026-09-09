@@ -16,12 +16,14 @@ type JoinLobbyProps = {
 type MeetingCredentials = {
   token: string;
   serverUrl: string;
+  isHost: boolean;
 };
 
 type JoinResponse = {
   token?: string;
   serverUrl?: string;
   participantIdentity?: string;
+  isHost?: boolean;
   error?: string;
   code?: string;
 };
@@ -189,6 +191,7 @@ export default function JoinLobby({ roomId }: JoinLobbyProps) {
       setMeetingCredentials({
         token: data.token,
         serverUrl: data.serverUrl,
+        isHost: data.isHost === true,
       });
     } catch {
       setJoinError(
@@ -210,6 +213,7 @@ export default function JoinLobby({ roomId }: JoinLobbyProps) {
         serverUrl={meetingCredentials.serverUrl}
         audioEnabled={micEnabled}
         videoEnabled={cameraEnabled}
+        isHost={meetingCredentials.isHost}
         onLeave={() => {
         window.location.reload();
       }}

@@ -100,7 +100,8 @@ export async function POST(
           public_id,
           password_hash,
           status,
-          livekit_room_name
+          livekit_room_name,
+          host_user_id
         `
       )
       .eq("public_id", roomId)
@@ -198,7 +199,8 @@ export async function POST(
     // 7. Check current human capacity
     // --------------------------------------------------
 
-    const roomService = createRoomServiceClient();
+    const roomService =
+      createRoomServiceClient();
 
     let participants;
 
@@ -262,11 +264,14 @@ export async function POST(
     // 8. Create short-lived LiveKit access token
     // --------------------------------------------------
 
-    const token = await createParticipantToken({
-      roomName: room.livekit_room_name,
-      participantIdentity,
-      participantName: displayName.trim(),
-    });
+    const token =
+      await createParticipantToken({
+        roomName:
+          room.livekit_room_name,
+        participantIdentity,
+        participantName:
+          displayName.trim(),
+      });
 
     const serverUrl =
       process.env.NEXT_PUBLIC_LIVEKIT_URL;
@@ -280,7 +285,8 @@ export async function POST(
         {
           error:
             "The meeting service is not configured.",
-          code: "SERVER_CONFIGURATION_ERROR",
+          code:
+            "SERVER_CONFIGURATION_ERROR",
         },
         {
           status: 500,
@@ -289,13 +295,33 @@ export async function POST(
     }
 
     // --------------------------------------------------
-    // 9. Return only safe join information
+    // 9. Determine whether this user is the host
+    // --------------------------------------------------
+
+    /*
+     * IMPORTANT:
+     *
+     * We calculate this on the server using:
+     *
+     * authenticated user.id
+     *          vs
+     * rooms.host_user_id
+     *
+     * The browser does NOT decide whether
+     * someone is the host.
+     */
+    const isHost =
+      room.host_user_id === user.id;
+
+    // --------------------------------------------------
+    // 10. Return only safe join information
     // --------------------------------------------------
 
     return NextResponse.json({
       token,
       serverUrl,
       participantIdentity,
+      isHost,
     });
   } catch (error) {
     console.error(
