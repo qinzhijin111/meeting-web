@@ -1,6 +1,7 @@
 
 import {
   AccessToken,
+  AgentDispatchClient,
   RoomServiceClient,
 } from "livekit-server-sdk";
 
@@ -33,6 +34,24 @@ export function createRoomServiceClient() {
     livekitUrl,
     apiKey,
     apiSecret
+  );
+}
+
+export function createAgentDispatchClient() {
+  const livekitUrl = process.env.LIVEKIT_URL;
+  const apiKey = process.env.LIVEKIT_API_KEY;
+  const apiSecret = process.env.LIVEKIT_API_SECRET;
+
+  if (!livekitUrl || !apiKey || !apiSecret) {
+    throw new Error(
+      "Missing LiveKit server environment variables.",
+    );
+  }
+
+  return new AgentDispatchClient(
+    livekitUrl,
+    apiKey,
+    apiSecret,
   );
 }
 

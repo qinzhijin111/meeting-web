@@ -214,6 +214,7 @@ export default function JoinLobby({ roomId }: JoinLobbyProps) {
         audioEnabled={micEnabled}
         videoEnabled={cameraEnabled}
         isHost={meetingCredentials.isHost}
+        roomId={roomId}
         onLeave={() => {
         window.location.reload();
       }}

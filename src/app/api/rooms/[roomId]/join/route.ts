@@ -17,7 +17,7 @@ type RouteContext = {
 
 export async function POST(
   request: Request,
-  { params }: RouteContext
+  { params }: RouteContext,
 ) {
   try {
     // --------------------------------------------------
@@ -33,12 +33,13 @@ export async function POST(
     if (!user) {
       return NextResponse.json(
         {
-          error: "You must be signed in to join a room.",
+          error:
+            "You must be signed in to join a room.",
           code: "UNAUTHENTICATED",
         },
         {
           status: 401,
-        }
+        },
       );
     }
 
@@ -67,19 +68,20 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
     if (displayName.trim().length > 80) {
       return NextResponse.json(
         {
-          error: "Display name is too long.",
+          error:
+            "Display name is too long.",
           code: "INVALID_INPUT",
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -102,7 +104,7 @@ export async function POST(
           status,
           livekit_room_name,
           host_user_id
-        `
+        `,
       )
       .eq("public_id", roomId)
       .maybeSingle();
@@ -110,29 +112,31 @@ export async function POST(
     if (roomError) {
       console.error(
         "Failed to query room:",
-        roomError
+        roomError,
       );
 
       return NextResponse.json(
         {
-          error: "Unable to join this room.",
+          error:
+            "Unable to join this room.",
           code: "JOIN_FAILED",
         },
         {
           status: 500,
-        }
+        },
       );
     }
 
     if (!room) {
       return NextResponse.json(
         {
-          error: "Unable to join this room.",
+          error:
+            "Unable to join this room.",
           code: "JOIN_DENIED",
         },
         {
           status: 403,
-        }
+        },
       );
     }
 
@@ -143,12 +147,13 @@ export async function POST(
     if (room.status !== "active") {
       return NextResponse.json(
         {
-          error: "Unable to join this room.",
+          error:
+            "Unable to join this room.",
           code: "JOIN_DENIED",
         },
         {
           status: 403,
-        }
+        },
       );
     }
 
@@ -158,12 +163,13 @@ export async function POST(
     ) {
       return NextResponse.json(
         {
-          error: "Unable to join this room.",
+          error:
+            "Unable to join this room.",
           code: "JOIN_DENIED",
         },
         {
           status: 403,
-        }
+        },
       );
     }
 
@@ -171,25 +177,27 @@ export async function POST(
     // 5. Validate room password
     // --------------------------------------------------
 
-    const passwordMatches = await bcrypt.compare(
-      password,
-      room.password_hash
-    );
+    const passwordMatches =
+      await bcrypt.compare(
+        password,
+        room.password_hash,
+      );
 
     if (!passwordMatches) {
       return NextResponse.json(
         {
-          error: "Unable to join this room.",
+          error:
+            "Unable to join this room.",
           code: "JOIN_DENIED",
         },
         {
           status: 403,
-        }
+        },
       );
     }
 
     // --------------------------------------------------
-    // 6. Generate a deterministic human identity
+    // 6. Generate deterministic human identity
     // --------------------------------------------------
 
     const participantIdentity =
@@ -207,12 +215,12 @@ export async function POST(
     try {
       participants =
         await roomService.listParticipants(
-          room.livekit_room_name
+          room.livekit_room_name,
         );
     } catch (error) {
       console.error(
         "Failed to list LiveKit participants:",
-        error
+        error,
       );
 
       return NextResponse.json(
@@ -223,7 +231,7 @@ export async function POST(
         },
         {
           status: 503,
-        }
+        },
       );
     }
 
@@ -231,17 +239,18 @@ export async function POST(
       `human:${room.id}:`;
 
     const activeHumanParticipants =
-      participants.filter((participant) =>
-        participant.identity.startsWith(
-          humanIdentityPrefix
-        )
+      participants.filter(
+        (participant) =>
+          participant.identity.startsWith(
+            humanIdentityPrefix,
+          ),
       );
 
     const userAlreadyConnected =
       activeHumanParticipants.some(
         (participant) =>
           participant.identity ===
-          participantIdentity
+          participantIdentity,
       );
 
     if (
@@ -256,7 +265,7 @@ export async function POST(
         },
         {
           status: 409,
-        }
+        },
       );
     }
 
@@ -278,7 +287,7 @@ export async function POST(
 
     if (!serverUrl) {
       console.error(
-        "NEXT_PUBLIC_LIVEKIT_URL is missing."
+        "NEXT_PUBLIC_LIVEKIT_URL is missing.",
       );
 
       return NextResponse.json(
@@ -290,31 +299,19 @@ export async function POST(
         },
         {
           status: 500,
-        }
+        },
       );
     }
 
     // --------------------------------------------------
-    // 9. Determine whether this user is the host
+    // 9. Determine whether authenticated user is host
     // --------------------------------------------------
 
-    /*
-     * IMPORTANT:
-     *
-     * We calculate this on the server using:
-     *
-     * authenticated user.id
-     *          vs
-     * rooms.host_user_id
-     *
-     * The browser does NOT decide whether
-     * someone is the host.
-     */
     const isHost =
       room.host_user_id === user.id;
 
     // --------------------------------------------------
-    // 10. Return only safe join information
+    // 10. Return browser-safe join information
     // --------------------------------------------------
 
     return NextResponse.json({
@@ -326,7 +323,7 @@ export async function POST(
   } catch (error) {
     console.error(
       "Unexpected join API error:",
-      error
+      error,
     );
 
     return NextResponse.json(
@@ -337,7 +334,7 @@ export async function POST(
       },
       {
         status: 500,
-      }
+      },
     );
   }
 }

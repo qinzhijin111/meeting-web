@@ -29,6 +29,7 @@ type MeetingRoomProps = {
   audioEnabled: boolean;
   videoEnabled: boolean;
   isHost: boolean;
+  roomId: string;
   onLeave: () => void;
 };
 
@@ -119,7 +120,8 @@ function ConnectionStatus({
 }
 
 function MeetingParticipantTile() {
-  const trackRef = useTrackRefContext();
+  const trackRef =
+    useTrackRefContext();
 
   const participant =
     trackRef.participant;
@@ -368,7 +370,6 @@ function MeetingControls({
   return (
     <footer className="border-t border-gray-800 bg-gray-950 px-4 py-4">
       <div className="flex flex-wrap items-center justify-center gap-4">
-
         {/* Microphone */}
         <div className="flex items-center gap-1">
           <TrackToggle
@@ -411,7 +412,9 @@ function MeetingControls({
         {/* Camera */}
         <div className="flex items-center gap-1">
           <TrackToggle
-            source={Track.Source.Camera}
+            source={
+              Track.Source.Camera
+            }
             onChange={(
               enabled,
               isUserInitiated,
@@ -466,8 +469,11 @@ function MeetingControls({
 }
 
 type MeetingRoomContentProps = {
+  roomId: string;
+
   initialAudioEnabled: boolean;
   initialVideoEnabled: boolean;
+
   meetingError: string;
 
   setMeetingError: (
@@ -480,6 +486,7 @@ type MeetingRoomContentProps = {
 };
 
 function MeetingRoomContent({
+  roomId,
   initialAudioEnabled,
   initialVideoEnabled,
   meetingError,
@@ -514,7 +521,6 @@ function MeetingRoomContent({
 
   return (
     <main className="flex h-screen flex-col bg-gray-950 text-white">
-
       {/* Header */}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-800 px-6 py-4">
         <div>
@@ -562,16 +568,13 @@ function MeetingRoomContent({
       {/*
        * Main meeting area.
        *
-       * Hosts see:
+       * Hosts:
+       * participant grid + AgentPanel
        *
-       * Video grid + Agents panel
-       *
-       * Normal participants see:
-       *
-       * Video grid only
+       * Normal participants:
+       * participant grid only
        */}
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 lg:flex-row">
-
         {/* Participant grid */}
         <GridLayout
           tracks={tracks}
@@ -582,7 +585,9 @@ function MeetingRoomContent({
 
         {/* Host-only Agents panel */}
         {isHost && (
-          <AgentPanel />
+          <AgentPanel
+            roomId={roomId}
+          />
         )}
       </div>
 
@@ -611,6 +616,7 @@ export default function MeetingRoom({
   audioEnabled,
   videoEnabled,
   isHost,
+  roomId,
   onLeave,
 }: MeetingRoomProps) {
   const [
@@ -627,24 +633,20 @@ export default function MeetingRoom({
       video={videoEnabled}
       data-lk-theme="default"
       className="h-screen"
-
       onConnected={() => {
         setMeetingError("");
       }}
-
       onDisconnected={() => {
         setMeetingError(
           "The meeting connection was lost. Check your network connection and rejoin if necessary.",
         );
       }}
-
       onError={(error) => {
         setMeetingError(
           error.message ||
             "Unable to connect to the meeting.",
         );
       }}
-
       onMediaDeviceFailure={(
         _failure,
         kind,
@@ -675,6 +677,7 @@ export default function MeetingRoom({
       }}
     >
       <MeetingRoomContent
+        roomId={roomId}
         initialAudioEnabled={
           audioEnabled
         }
