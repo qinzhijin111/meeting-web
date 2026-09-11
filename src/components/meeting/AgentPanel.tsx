@@ -29,6 +29,11 @@ type AgentPanelProps = {
   roomId: string;
 };
 
+type PendingAction = {
+  agentType: AgentType;
+  action: "start" | "stop";
+} | null;
+
 const agentOptions: AgentOption[] = [
   {
     type: "notes",
@@ -68,10 +73,10 @@ export default function AgentPanel({
   );
 
   const [
-    pendingAgent,
-    setPendingAgent,
+    pendingAction,
+    setPendingAction,
   ] =
-    useState<AgentType | null>(
+    useState<PendingAction>(
       null,
     );
 
@@ -124,9 +129,11 @@ export default function AgentPanel({
   ) {
     try {
       setError("");
-      setPendingAgent(
+
+      setPendingAction({
         agentType,
-      );
+        action: "start",
+      });
 
       const response =
         await fetch(
@@ -165,7 +172,59 @@ export default function AgentPanel({
         "Unable to start agent.",
       );
     } finally {
-      setPendingAgent(null);
+      setPendingAction(null);
+    }
+  }
+
+  async function stopAgent(
+    agentType: AgentType,
+  ) {
+    try {
+      setError("");
+
+      setPendingAction({
+        agentType,
+        action: "stop",
+      });
+
+      const response =
+        await fetch(
+          `/api/rooms/${encodeURIComponent(
+            roomId,
+          )}/agents`,
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              agentType,
+            }),
+          },
+        );
+
+      const data =
+        (await response.json()) as {
+          error?: string;
+        };
+
+      if (!response.ok) {
+        setError(
+          data.error ??
+            "Unable to stop agent.",
+        );
+
+        return;
+      }
+
+      await loadAgents();
+    } catch {
+      setError(
+        "Unable to stop agent.",
+      );
+    } finally {
+      setPendingAction(null);
     }
   }
 
@@ -208,9 +267,59 @@ export default function AgentPanel({
                 agent.type,
               );
 
-            const isPending =
-              pendingAgent ===
-              agent.type;
+            const isStarting =
+              pendingAction?.agentType ===
+                agent.type &&
+              pendingAction.action ===
+                "start";
+
+            const isStopping =
+              pendingAction?.agentType ===
+                agent.type &&
+              pendingAction.action ===
+                "stop";
+
+            const serverStarting =
+              activeAgent?.status ===
+              "starting";
+
+            const serverStopping =
+              activeAgent?.status ===
+              "stopping";
+
+            const actionPending =
+              isStarting ||
+              isStopping ||
+              serverStarting ||
+              serverStopping;
+
+            const canStop =
+              Boolean(
+                activeAgent?.dispatch_id,
+              ) &&
+              !actionPending;
+
+            let buttonText =
+              "Start Agent";
+
+            if (
+              isStarting ||
+              serverStarting
+            ) {
+              buttonText =
+                "Starting...";
+            } else if (
+              isStopping ||
+              serverStopping
+            ) {
+              buttonText =
+                "Stopping...";
+            } else if (
+              activeAgent
+            ) {
+              buttonText =
+                "Stop Agent";
+            }
 
             return (
               <div
@@ -237,27 +346,37 @@ export default function AgentPanel({
                   </span>
                 </div>
 
-                <button
-                  type="button"
-                  disabled={
-                    isPending ||
-                    Boolean(
-                      activeAgent,
-                    )
-                  }
-                  onClick={() => {
-                    void startAgent(
-                      agent.type,
-                    );
-                  }}
-                  className="mt-4 w-full rounded-md bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
-                >
-                  {isPending
-                    ? "Starting..."
-                    : activeAgent
-                      ? "Agent active"
-                      : "Start Agent"}
-                </button>
+                {activeAgent ? (
+                  <button
+                    type="button"
+                    disabled={
+                      !canStop
+                    }
+                    onClick={() => {
+                      void stopAgent(
+                        agent.type,
+                      );
+                    }}
+                    className="mt-4 w-full rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+                  >
+                    {buttonText}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={
+                      actionPending
+                    }
+                    onClick={() => {
+                      void startAgent(
+                        agent.type,
+                      );
+                    }}
+                    className="mt-4 w-full rounded-md bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+                  >
+                    {buttonText}
+                  </button>
+                )}
               </div>
             );
           },

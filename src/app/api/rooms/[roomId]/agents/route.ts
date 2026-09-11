@@ -660,3 +660,449 @@ export async function POST(
     );
   }
 }
+
+/*
+ * DELETE
+ *
+ * Stops an active agent by deleting its
+ * LiveKit explicit dispatch.
+ */
+export async function DELETE(
+  request: Request,
+  { params }: RouteContext,
+) {
+  try {
+    // ---------------------------------------------
+    // 1. Authenticate
+    // ---------------------------------------------
+
+    const supabase =
+      await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          error:
+            "You must be signed in.",
+          code: "UNAUTHENTICATED",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
+    // ---------------------------------------------
+    // 2. Validate input
+    // ---------------------------------------------
+
+    let body: {
+      agentType?: unknown;
+    };
+
+    try {
+      body =
+        (await request.json()) as {
+          agentType?: unknown;
+        };
+    } catch {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid request.",
+          code: "INVALID_INPUT",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (
+      !isAgentType(
+        body.agentType,
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Unsupported agent type.",
+          code:
+            "INVALID_AGENT_TYPE",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const agentType =
+      body.agentType;
+
+    const { roomId } =
+      await params;
+
+    const admin =
+      createAdminClient();
+
+    // ---------------------------------------------
+    // 3. Verify room and HOST
+    // ---------------------------------------------
+
+    const {
+      data: room,
+      error: roomError,
+    } = await admin
+      .from("rooms")
+      .select(
+        `
+          id,
+          public_id,
+          livekit_room_name,
+          host_user_id,
+          status
+        `,
+      )
+      .eq("public_id", roomId)
+      .maybeSingle();
+
+    if (
+      roomError ||
+      !room
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Unable to stop the agent.",
+          code:
+            "AGENT_STOP_DENIED",
+        },
+        {
+          status: 403,
+        },
+      );
+    }
+
+    /*
+     * Never trust the browser's isHost flag.
+     * Authorize again on the server.
+     */
+    if (
+      room.host_user_id !==
+      user.id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Only the room host can stop agents.",
+          code: "HOST_ONLY",
+        },
+        {
+          status: 403,
+        },
+      );
+    }
+
+    if (
+      !room.livekit_room_name
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "The meeting does not have a LiveKit room.",
+          code:
+            "LIVEKIT_ROOM_MISSING",
+        },
+        {
+          status: 409,
+        },
+      );
+    }
+
+    // ---------------------------------------------
+    // 4. Find the active agent
+    // ---------------------------------------------
+
+    const {
+      data: activeAgent,
+      error: activeAgentError,
+    } = await admin
+      .from("room_agents")
+      .select(
+        `
+          id,
+          agent_type,
+          dispatch_id,
+          status,
+          participant_identity
+        `,
+      )
+      .eq(
+        "room_id",
+        room.id,
+      )
+      .eq(
+        "agent_type",
+        agentType,
+      )
+      .in(
+        "status",
+        ACTIVE_AGENT_STATUSES,
+      )
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        },
+      )
+      .limit(1)
+      .maybeSingle();
+
+    if (activeAgentError) {
+      console.error(
+        "Failed to query active agent:",
+        activeAgentError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Unable to check agent state.",
+          code:
+            "AGENT_STATE_ERROR",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    if (!activeAgent) {
+      return NextResponse.json(
+        {
+          error:
+            "This agent is not active.",
+          code:
+            "AGENT_NOT_ACTIVE",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    if (
+      activeAgent.status ===
+      "stopping"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "This agent is already stopping.",
+          code:
+            "AGENT_ALREADY_STOPPING",
+        },
+        {
+          status: 409,
+        },
+      );
+    }
+
+    /*
+     * A "starting" row may not have received
+     * its LiveKit dispatch ID yet.
+     *
+     * Do not attempt to stop it until the
+     * start operation has completed.
+     */
+    if (
+      !activeAgent.dispatch_id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "The agent is still starting. Try again shortly.",
+          code:
+            "AGENT_NOT_READY_TO_STOP",
+        },
+        {
+          status: 409,
+        },
+      );
+    }
+
+    // ---------------------------------------------
+    // 5. Reserve the stop operation
+    // ---------------------------------------------
+
+    const {
+      error: stoppingError,
+    } = await admin
+      .from("room_agents")
+      .update({
+        status: "stopping",
+        updated_at:
+          new Date().toISOString(),
+        error_message: null,
+      })
+      .eq(
+        "id",
+        activeAgent.id,
+      );
+
+    if (stoppingError) {
+      console.error(
+        "Failed to mark agent as stopping:",
+        stoppingError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Unable to stop the agent.",
+          code:
+            "AGENT_STATE_ERROR",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    // ---------------------------------------------
+    // 6. Delete LiveKit explicit dispatch
+    // ---------------------------------------------
+
+    const dispatchClient =
+      createAgentDispatchClient();
+
+    try {
+      await dispatchClient.deleteDispatch(
+        activeAgent.dispatch_id,
+        room.livekit_room_name,
+      );
+    } catch (error) {
+      console.error(
+        "LiveKit agent stop failed:",
+        error,
+      );
+
+      /*
+       * Restore the previous state so the host
+       * can retry the stop operation.
+       */
+      await admin
+        .from("room_agents")
+        .update({
+          status:
+            activeAgent.status,
+          error_message:
+            "LiveKit dispatch deletion failed.",
+          updated_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          "id",
+          activeAgent.id,
+        );
+
+      return NextResponse.json(
+        {
+          error:
+            "The agent could not be stopped.",
+          code:
+            "AGENT_STOP_FAILED",
+        },
+        {
+          status: 503,
+        },
+      );
+    }
+
+    // ---------------------------------------------
+    // 7. Persist stopped state
+    // ---------------------------------------------
+
+    const stoppedAt =
+      new Date().toISOString();
+
+    const {
+      data: stoppedAgent,
+      error: stoppedError,
+    } = await admin
+      .from("room_agents")
+      .update({
+        status: "stopped",
+        stopped_at:
+          stoppedAt,
+        updated_at:
+          stoppedAt,
+        error_message: null,
+      })
+      .eq(
+        "id",
+        activeAgent.id,
+      )
+      .select(
+        `
+          id,
+          agent_type,
+          dispatch_id,
+          participant_identity,
+          status,
+          created_at,
+          updated_at,
+          stopped_at
+        `,
+      )
+      .single();
+
+    if (
+      stoppedError ||
+      !stoppedAgent
+    ) {
+      console.error(
+        "Agent stopped in LiveKit but DB update failed:",
+        stoppedError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Agent stopped, but its database state could not be updated.",
+          code:
+            "AGENT_STOP_STATE_ERROR",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    return NextResponse.json({
+      agent:
+        stoppedAgent,
+    });
+  } catch (error) {
+    console.error(
+      "Unexpected stop-agent API error:",
+      error,
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Something went wrong while stopping the agent.",
+        code:
+          "INTERNAL_ERROR",
+      },
+      {
+        status: 500,
+      },
+    );
+  }
+}
