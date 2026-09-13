@@ -367,6 +367,232 @@ A successful setup should result in the LiveKit meeting interface loading withou
 
 You should be able to grant camera and microphone access and join the development room.
 
+## Week 6 - Persistent Meeting Notes
+
+Week 6 adds persistent AI-generated meeting output to the web application.
+
+The Note Taker worker sends structured meeting notes to a protected server endpoint, the application stores the output in Supabase, and the host can review the result on a Post-Meeting Summary page.
+
+### Meeting Notes Data
+
+Meeting notes are stored in the `meeting_notes` table.
+
+Each output is associated with:
+
+- a meeting room
+- a specific `room_agents` session
+- a notes generation status
+- structured AI-generated meeting output
+
+Stored meeting output includes:
+
+- summary
+- decisions
+- action items
+- open questions
+- generation status
+- safe error information when applicable
+
+### Internal Agent Output Endpoint
+
+The Python worker persists meeting output through:
+
+```text
+POST /api/internal/agent-output
+```
+
+This endpoint is not intended for browser clients.
+
+It verifies:
+
+- the worker shared secret
+- the room ID
+- the agent session ID
+- that the agent session belongs to the room
+- that the agent type is `notes`
+
+The endpoint then upserts the structured output into the `meeting_notes` table.
+
+### Worker Authentication
+
+The web application and worker share a server-only secret.
+
+Add this variable to `.env.local`:
+
+```env
+AGENT_WORKER_SHARED_SECRET=
+```
+
+The value must exactly match the worker's:
+
+```env
+AGENT_WORKER_SHARED_SECRET=
+```
+
+Do not expose or commit the real value.
+
+### Reading Meeting Notes
+
+The host can retrieve meeting notes through:
+
+```text
+GET /api/rooms/[roomId]/notes
+```
+
+For the current MVP, meeting notes are host-only by default.
+
+The API reads persisted data from Supabase rather than relying on worker memory.
+
+### Post-Meeting Summary Page
+
+The summary page is available at:
+
+```text
+/room/[roomId]/summary
+```
+
+The page displays:
+
+- meeting summary
+- decisions
+- action items
+- action-item owners when known
+- action-item due dates when known
+- open questions
+- generation warnings or errors
+
+The page labels the content as AI-generated and reminds the user that important information should be verified.
+
+### Notes Generation States
+
+The summary UI supports these states:
+
+- `waiting` - meeting output is not available yet
+- `processing` - the Note Taker is currently generating structured notes
+- `ready` - complete notes are available
+- `partial` - some useful output exists, but final generation did not fully complete
+- `error` - note generation failed
+
+While the status is `waiting` or `processing`, the summary page periodically reloads the notes API.
+
+Because the state is stored in Supabase, refreshing the browser does not reset the notes workflow.
+
+### AI and Transcription Notice
+
+When the Note Taker is active in a LiveKit room, all human participants see a visible AI/transcription notice.
+
+The notice explains that:
+
+- AI transcription is active
+- meeting audio is being processed for notes
+- the output is AI-generated
+- AI-generated output may be inaccurate
+
+The notice is visible to both the host and normal participants.
+
+The Agents panel remains host-only.
+
+### Database Migration
+
+The Week 6 database migration creates the `meeting_notes` table.
+
+Migration file:
+
+```text
+supabase/migrations/20260912_create_meeting_notes.sql
+```
+
+Important fields include:
+
+```text
+id
+room_id
+agent_session_id
+summary
+decisions_json
+action_items_json
+open_questions_json
+status
+error_message
+created_at
+updated_at
+```
+
+The `agent_session_id` links the output to the exact `room_agents` session that produced it.
+
+### Local Development
+
+Start the Next.js application:
+
+```powershell
+cd D:\LIVEQ\meeting-web
+npm run dev
+```
+
+Run lint checks:
+
+```powershell
+npm run lint
+```
+
+Run a production build check:
+
+```powershell
+npm run build
+```
+
+For local Week 6 end-to-end testing, also run the Python worker in a separate PowerShell window:
+
+```powershell
+cd D:\LIVEQ\meeting-agent-worker
+.\.venv\Scripts\Activate.ps1
+python agent.py dev
+```
+
+### Week 6 Manual Test Flow
+
+A typical local test is:
+
+```text
+Host joins meeting
+        ↓
+Host starts Note Taker
+        ↓
+All participants see AI transcription notice
+        ↓
+Participants speak
+        ↓
+Worker collects final transcript segments
+        ↓
+Host stops Note Taker
+        ↓
+Notes status becomes processing
+        ↓
+Structured notes are generated
+        ↓
+Notes are persisted to Supabase
+        ↓
+Status becomes ready
+        ↓
+Host opens /room/[roomId]/summary
+```
+
+Refresh the summary page to confirm the output remains available.
+
+### Privacy
+
+See:
+
+```text
+PRIVACY.md
+```
+
+The MVP does not intentionally store raw audio.
+
+The host must explicitly activate the Note Taker. AI transcription should not silently begin when a room is created.
+
+This project is an internship demonstration and is not intended for confidential, regulated, medical, or production-sensitive meetings.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
