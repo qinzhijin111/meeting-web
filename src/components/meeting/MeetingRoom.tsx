@@ -1,7 +1,13 @@
 
 "use client";
 
-import { useRef, useState } from "react";
+import {
+  useRef,
+  useState,
+} from "react";
+
+import AITranscriptionNotice from "@/components/meeting/AITranscriptionNotice";
+import AgentPanel from "@/components/meeting/AgentPanel";
 
 import {
   DisconnectButton,
@@ -19,9 +25,10 @@ import {
   useTracks,
 } from "@livekit/components-react";
 
-import { Track } from "livekit-client";
+import {
+  Track,
+} from "livekit-client";
 
-import AgentPanel from "@/components/meeting/AgentPanel";
 
 type MeetingRoomProps = {
   token: string;
@@ -33,7 +40,11 @@ type MeetingRoomProps = {
   onLeave: () => void;
 };
 
-type ParticipantType = "Human" | "Agent";
+
+type ParticipantType =
+  | "Human"
+  | "Agent";
+
 
 function getParticipantType(
   metadata: string | undefined,
@@ -41,38 +52,58 @@ function getParticipantType(
 ): ParticipantType {
   if (metadata) {
     try {
-      const parsed = JSON.parse(metadata) as {
-        participantType?: string;
-      };
+      const parsed =
+        JSON.parse(
+          metadata,
+        ) as {
+          participantType?: string;
+        };
 
-      if (parsed.participantType === "agent") {
+      if (
+        parsed.participantType
+        === "agent"
+      ) {
         return "Agent";
       }
 
-      if (parsed.participantType === "human") {
+      if (
+        parsed.participantType
+        === "human"
+      ) {
         return "Human";
       }
     } catch {
-      // Ignore invalid metadata and use identity fallback.
+      // Ignore invalid metadata and
+      // use identity fallback.
     }
   }
 
-  return identity.startsWith("agent:")
+  return identity.startsWith(
+    "agent:",
+  )
     ? "Agent"
     : "Human";
 }
+
 
 function ConnectionStatus({
   onReturnToLobby,
 }: {
   onReturnToLobby: () => void;
 }) {
-  const connectionState = useConnectionState();
+  const connectionState =
+    useConnectionState();
 
   const state =
-    String(connectionState).toLowerCase();
+    String(
+      connectionState,
+    ).toLowerCase();
 
-  if (state.includes("reconnecting")) {
+  if (
+    state.includes(
+      "reconnecting",
+    )
+  ) {
     return (
       <div className="flex items-center gap-2 rounded-md bg-orange-100 px-3 py-2 text-sm font-medium text-orange-800">
         <span className="h-2 w-2 animate-pulse rounded-full bg-orange-500" />
@@ -82,7 +113,9 @@ function ConnectionStatus({
     );
   }
 
-  if (state === "connecting") {
+  if (
+    state === "connecting"
+  ) {
     return (
       <div className="flex items-center gap-2 rounded-md bg-yellow-100 px-3 py-2 text-sm font-medium text-yellow-800">
         <span className="h-2 w-2 animate-pulse rounded-full bg-yellow-500" />
@@ -92,7 +125,9 @@ function ConnectionStatus({
     );
   }
 
-  if (state === "connected") {
+  if (
+    state === "connected"
+  ) {
     return (
       <div className="flex items-center gap-2 rounded-md bg-green-100 px-3 py-2 text-sm font-medium text-green-800">
         <span className="h-2 w-2 rounded-full bg-green-500" />
@@ -110,7 +145,9 @@ function ConnectionStatus({
 
       <button
         type="button"
-        onClick={onReturnToLobby}
+        onClick={
+          onReturnToLobby
+        }
         className="rounded bg-red-600 px-3 py-1 font-medium text-white hover:bg-red-700"
       >
         Return to lobby
@@ -118,6 +155,7 @@ function ConnectionStatus({
     </div>
   );
 }
+
 
 function MeetingParticipantTile() {
   const trackRef =
@@ -180,7 +218,8 @@ function MeetingParticipantTile() {
           <>
             <span
               className={
-                participantType === "Agent"
+                participantType
+                  === "Agent"
                   ? "rounded-full bg-purple-600 px-2 py-0.5 text-xs font-semibold"
                   : "rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold"
               }
@@ -199,6 +238,7 @@ function MeetingParticipantTile() {
     </div>
   );
 }
+
 
 function ScreenShareButton({
   onError,
@@ -222,9 +262,10 @@ function ScreenShareButton({
       setIsChanging(true);
       onError("");
 
-      await localParticipant.setScreenShareEnabled(
-        !isScreenShareEnabled,
-      );
+      await localParticipant
+        .setScreenShareEnabled(
+          !isScreenShareEnabled,
+        );
     } catch {
       onError(
         "Screen sharing was cancelled or could not be started.",
@@ -237,8 +278,12 @@ function ScreenShareButton({
   return (
     <button
       type="button"
-      onClick={toggleScreenShare}
-      disabled={isChanging}
+      onClick={
+        toggleScreenShare
+      }
+      disabled={
+        isChanging
+      }
       className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {isChanging
@@ -250,6 +295,7 @@ function ScreenShareButton({
   );
 }
 
+
 type MeetingControlsProps = {
   initialAudioEnabled: boolean;
   initialVideoEnabled: boolean;
@@ -259,31 +305,40 @@ type MeetingControlsProps = {
   ) => void;
 };
 
+
 function MeetingControls({
   initialAudioEnabled,
   initialVideoEnabled,
   onLeave,
   onDeviceError,
 }: MeetingControlsProps) {
-  const room = useRoomContext();
+  const room =
+    useRoomContext();
 
   const {
     localParticipant,
   } = useLocalParticipant();
 
   /*
-   * Remember the media state the user wants.
+   * Remember the media state
+   * the user wants.
    *
-   * This lets the app recover from a failed
-   * microphone/camera device switch without
-   * accidentally enabling a device that the
-   * user intentionally disabled.
+   * This lets the app recover
+   * from a failed microphone or
+   * camera switch without
+   * accidentally enabling a
+   * device the user intentionally
+   * disabled.
    */
   const microphoneWantedRef =
-    useRef(initialAudioEnabled);
+    useRef(
+      initialAudioEnabled,
+    );
 
   const cameraWantedRef =
-    useRef(initialVideoEnabled);
+    useRef(
+      initialVideoEnabled,
+    );
 
   async function recoverMicrophoneDevice(
     deviceId: string,
@@ -294,9 +349,10 @@ function MeetingControls({
       const shouldEnableMicrophone =
         microphoneWantedRef.current;
 
-      await localParticipant.setMicrophoneEnabled(
-        false,
-      );
+      await localParticipant
+        .setMicrophoneEnabled(
+          false,
+        );
 
       const switched =
         await room.switchActiveDevice(
@@ -311,13 +367,16 @@ function MeetingControls({
         );
       }
 
-      if (shouldEnableMicrophone) {
-        await localParticipant.setMicrophoneEnabled(
-          true,
-          {
-            deviceId,
-          },
-        );
+      if (
+        shouldEnableMicrophone
+      ) {
+        await localParticipant
+          .setMicrophoneEnabled(
+            true,
+            {
+              deviceId,
+            },
+          );
       }
     } catch {
       onDeviceError(
@@ -325,6 +384,7 @@ function MeetingControls({
       );
     }
   }
+
 
   async function recoverCameraDevice(
     deviceId: string,
@@ -335,9 +395,10 @@ function MeetingControls({
       const shouldEnableCamera =
         cameraWantedRef.current;
 
-      await localParticipant.setCameraEnabled(
-        false,
-      );
+      await localParticipant
+        .setCameraEnabled(
+          false,
+        );
 
       const switched =
         await room.switchActiveDevice(
@@ -352,13 +413,16 @@ function MeetingControls({
         );
       }
 
-      if (shouldEnableCamera) {
-        await localParticipant.setCameraEnabled(
-          true,
-          {
-            deviceId,
-          },
-        );
+      if (
+        shouldEnableCamera
+      ) {
+        await localParticipant
+          .setCameraEnabled(
+            true,
+            {
+              deviceId,
+            },
+          );
       }
     } catch {
       onDeviceError(
@@ -367,6 +431,7 @@ function MeetingControls({
     }
   }
 
+
   return (
     <footer className="border-t border-gray-800 bg-gray-950 px-4 py-4">
       <div className="flex flex-wrap items-center justify-center gap-4">
@@ -374,13 +439,16 @@ function MeetingControls({
         <div className="flex items-center gap-1">
           <TrackToggle
             source={
-              Track.Source.Microphone
+              Track.Source
+                .Microphone
             }
             onChange={(
               enabled,
               isUserInitiated,
             ) => {
-              if (isUserInitiated) {
+              if (
+                isUserInitiated
+              ) {
                 microphoneWantedRef.current =
                   enabled;
               }
@@ -409,17 +477,21 @@ function MeetingControls({
           />
         </div>
 
+
         {/* Camera */}
         <div className="flex items-center gap-1">
           <TrackToggle
             source={
-              Track.Source.Camera
+              Track.Source
+                .Camera
             }
             onChange={(
               enabled,
               isUserInitiated,
             ) => {
-              if (isUserInitiated) {
+              if (
+                isUserInitiated
+              ) {
                 cameraWantedRef.current =
                   enabled;
               }
@@ -448,12 +520,14 @@ function MeetingControls({
           />
         </div>
 
+
         {/* Screen share */}
         <ScreenShareButton
           onError={
             onDeviceError
           }
         />
+
 
         {/* Leave */}
         <DisconnectButton
@@ -467,6 +541,7 @@ function MeetingControls({
     </footer>
   );
 }
+
 
 type MeetingRoomContentProps = {
   roomId: string;
@@ -485,6 +560,7 @@ type MeetingRoomContentProps = {
   onLeave: () => void;
 };
 
+
 function MeetingRoomContent({
   roomId,
   initialAudioEnabled,
@@ -494,18 +570,23 @@ function MeetingRoomContent({
   isHost,
   onLeave,
 }: MeetingRoomContentProps) {
-  const tracks = useTracks([
-    {
-      source:
-        Track.Source.Camera,
-      withPlaceholder: true,
-    },
-    {
-      source:
-        Track.Source.ScreenShare,
-      withPlaceholder: false,
-    },
-  ]);
+  const tracks =
+    useTracks([
+      {
+        source:
+          Track.Source
+            .Camera,
+        withPlaceholder:
+          true,
+      },
+      {
+        source:
+          Track.Source
+            .ScreenShare,
+        withPlaceholder:
+          false,
+      },
+    ]);
 
   const participants =
     useParticipants();
@@ -531,7 +612,8 @@ function MeetingRoomContent({
           <p className="text-sm text-gray-400">
             {participants.length}{" "}
             participant
-            {participants.length === 1
+            {participants.length
+              === 1
               ? ""
               : "s"}
             {" · "}
@@ -546,6 +628,25 @@ function MeetingRoomContent({
         />
       </header>
 
+
+      {/*
+       * Week 6:
+       * Visible AI/transcription notice.
+       *
+       * IMPORTANT:
+       * This is outside the host-only
+       * AgentPanel condition, so every
+       * participant sees the notice while
+       * the Note Taker is present.
+       *
+       * MeetingRoomContent itself is already
+       * inside <LiveKitRoom>, so
+       * AITranscriptionNotice can safely use
+       * LiveKit participant hooks.
+       */}
+      <AITranscriptionNotice />
+
+
       {/* Visible meeting/device error */}
       {meetingError && (
         <div className="mx-4 mt-4 flex items-center justify-between gap-4 rounded-lg border border-red-800 bg-red-950 px-4 py-3 text-sm text-red-200">
@@ -556,7 +657,9 @@ function MeetingRoomContent({
           <button
             type="button"
             onClick={() =>
-              setMeetingError("")
+              setMeetingError(
+                "",
+              )
             }
             className="font-medium text-red-100 underline"
           >
@@ -565,11 +668,13 @@ function MeetingRoomContent({
         </div>
       )}
 
+
       {/*
        * Main meeting area.
        *
        * Hosts:
-       * participant grid + AgentPanel
+       * participant grid
+       * + AgentPanel
        *
        * Normal participants:
        * participant grid only
@@ -577,19 +682,25 @@ function MeetingRoomContent({
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 lg:flex-row">
         {/* Participant grid */}
         <GridLayout
-          tracks={tracks}
+          tracks={
+            tracks
+          }
           className="min-h-[300px] flex-1 gap-4"
         >
           <MeetingParticipantTile />
         </GridLayout>
 
+
         {/* Host-only Agents panel */}
         {isHost && (
           <AgentPanel
-            roomId={roomId}
+            roomId={
+              roomId
+            }
           />
         )}
       </div>
+
 
       {/* Media controls */}
       <MeetingControls
@@ -599,7 +710,9 @@ function MeetingRoomContent({
         initialVideoEnabled={
           initialVideoEnabled
         }
-        onLeave={onLeave}
+        onLeave={
+          onLeave
+        }
         onDeviceError={
           setMeetingError
         }
@@ -609,6 +722,7 @@ function MeetingRoomContent({
     </main>
   );
 }
+
 
 export default function MeetingRoom({
   token,
@@ -626,15 +740,27 @@ export default function MeetingRoom({
 
   return (
     <LiveKitRoom
-      token={token}
-      serverUrl={serverUrl}
-      connect={true}
-      audio={audioEnabled}
-      video={videoEnabled}
+      token={
+        token
+      }
+      serverUrl={
+        serverUrl
+      }
+      connect={
+        true
+      }
+      audio={
+        audioEnabled
+      }
+      video={
+        videoEnabled
+      }
       data-lk-theme="default"
       className="h-screen"
       onConnected={() => {
-        setMeetingError("");
+        setMeetingError(
+          "",
+        );
       }}
       onDisconnected={() => {
         setMeetingError(
@@ -652,7 +778,8 @@ export default function MeetingRoom({
         kind,
       ) => {
         if (
-          kind === "audioinput"
+          kind
+          === "audioinput"
         ) {
           setMeetingError(
             "Microphone access failed. Please allow microphone access in your browser settings.",
@@ -662,7 +789,8 @@ export default function MeetingRoom({
         }
 
         if (
-          kind === "videoinput"
+          kind
+          === "videoinput"
         ) {
           setMeetingError(
             "Camera access failed. Please allow camera access in your browser settings.",
@@ -677,7 +805,9 @@ export default function MeetingRoom({
       }}
     >
       <MeetingRoomContent
-        roomId={roomId}
+        roomId={
+          roomId
+        }
         initialAudioEnabled={
           audioEnabled
         }
@@ -690,8 +820,12 @@ export default function MeetingRoom({
         setMeetingError={
           setMeetingError
         }
-        isHost={isHost}
-        onLeave={onLeave}
+        isHost={
+          isHost
+        }
+        onLeave={
+          onLeave
+        }
       />
     </LiveKitRoom>
   );
